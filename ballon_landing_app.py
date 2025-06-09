@@ -100,24 +100,12 @@ def reverse_projection(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitud
 
     return path[::-1], time
 
-import plotly.graph_objects as go
-
-# Hinweis: matplotlib wurde entfernt, da es im aktuellen Sandbox-Umfeld nicht verfügbar ist.
+# Hinweis: matplotlib und plotly wurden entfernt, da sie im aktuellen Sandbox-Umfeld nicht verfügbar sind.
 
 def show_wind_profile(wind_speeds, altitudes, model_time):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=wind_speeds,
-        y=altitudes,
-        mode='lines+markers',
-        name='Windgeschwindigkeit',
-        line=dict(color='blue')
-    ))
-    fig.update_layout(
-        title=f"Vertikales Windprofil (GFS) – Modelllauf: {model_time}",
-        xaxis_title="Windgeschwindigkeit (m/s)",
-        yaxis_title="Höhe (m AMSL)",
-        yaxis=dict(autorange='reversed'),
-        height=400
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    st.subheader(f"Vertikales Windprofil (GFS) – Modelllauf: {model_time}")
+    profile_data = [
+        {"Höhe (m AMSL)": int(alt), "Windgeschwindigkeit (m/s)": round(ws, 1)}
+        for alt, ws in zip(altitudes, wind_speeds)
+    ]
+    st.table(profile_data)
