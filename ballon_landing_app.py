@@ -73,13 +73,47 @@ def reverse_projection(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitud
 def main():
     st.title("Ballon-Landepunkt-Prognose")
 
-    # Beispielwerte (diese würden normalerweise per Eingabe kommen)
-    lat = 47.37
-    lon = 8.55
-    alt = 6000
-    sink_rate = 4.5
-    reduce_ab_hoehe = 300
-    mode = "Vorwärts"
+    # Eingabemaske für Startparameter
+    st.markdown("### Eingabeparameter")
+
+    input_mode = st.radio("Eingabemodus", ["Manuell (Koordinaten)", "Interaktive Karte"])
+
+    if input_mode == "Interaktive Karte":
+        st.markdown("Wähle einen Punkt auf der Karte:")
+        default_location = [47.37, 8.55]
+        fmap = folium.Map(location=default_location, zoom_start=6)
+        fmap.add_child(folium.LatLngPopup())
+        map_result = st_folium(fmap, height=500, use_container_width=True)
+
+        if map_result and map_result.get("last_clicked"):
+            lat = map_result["last_clicked"]["lat"]
+            lon = map_result["last_clicked"]["lng"]
+        else:
+            lat = 47.37
+            lon = 8.55
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            lat_str = st.text_input("Breitengrad (z. B. 47.37N)", value="47.37N")
+        with col2:
+            lon_str = st.text_input("Längengrad (z. B. 8.55E)", value="8.55E")
+
+        try:
+            lat = float(lat_str[:-1]) * (1 if lat_str[-1].upper() == 'N' else -1)
+            lon = float(lon_str[:-1]) * (1 if lon_str[-1].upper() == 'E' else -1)
+        except:
+            st.warning("Bitte gültige Koordinaten eingeben.")
+            st.stop()
+
+    col3, col4, col5 = st.columns(3)
+    with col3:
+        alt = st.number_input("Abstiegshöhe (AMSL)", min_value=500, max_value=30000, value=6000, step=100)
+    with col4:
+        sink_rate = st.number_input("Durchschnittliche Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
+    with col5:
+        reduce_ab_hoehe = st.number_input("Sinkrate reduzieren ab Höhe (m)", min_value=0, max_value=1000, value=300, step=50)
+
+    mode = st.radio("Simulationsmodus", ["Vorwärts", "Rückwärts"])
 
     submitted = st.button("Simulation starten")
 
