@@ -61,36 +61,51 @@ def main():
 
     st.markdown("""
     Dieses Tool berechnet den wahrscheinlichen Landepunkt eines Ballons,
-    der einen Abstieg aus hoher Höhe macht. Es verwendet aktuelle Winddaten (GFS, 100m-Niveau).
+    der einen Schnellabstieg aus hoher Höhe beginnt. Es verwendet aktuelle Winddaten (GFS, 100m-Niveau).
     """)
+
+    if "last_path" not in st.session_state:
+        st.session_state.last_path = None
 
     with st.form("input_form"):
         st.subheader("Eingabedaten")
-        lat = st.number_input("Startbreite (z.B. 47.37)", value=47.37)
-        lon = st.number_input("Startlänge (z.B. 8.55)", value=8.55)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            lat_value = st.number_input("Breitengrad (z.B. 47.37)", value=47.37)
+            lat_dir = st.selectbox("N/S", ["N", "S"], index=0)
+        with col2:
+            lon_value = st.number_input("Längengrad (z.B. 8.55)", value=8.55)
+            lon_dir = st.selectbox("E/W", ["E", "W"], index=0)
+
         alt = st.number_input("Abwurfhöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
         sink_rate = st.slider("Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
         submitted = st.form_submit_button("Simulation starten")
 
     if submitted:
+        lat = lat_value if lat_dir == "N" else -lat_value
+        lon = lon_value if lon_dir == "E" else -lon_value
+
         with st.spinner("Hole Winddaten und berechne Pfad ..."):
             try:
                 wind_speed, wind_dir = fetch_gfs_wind(lat, lon)
                 st.success(f"Wind: {wind_speed:.1f} m/s @ {wind_dir:.0f}°")
                 path = simulate_descent(lat, lon, alt, sink_rate, wind_speed, wind_dir)
-
-                st.markdown("### Ergebnis")
-                st.write(f"Letzter Punkt (Landepunkt): {path[-1]}")
-
-                fmap = folium.Map(location=path[0], zoom_start=9)
-                folium.Marker(path[0], tooltip="Abwurfpunkt", icon=folium.Icon(color="green")).add_to(fmap)
-                folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap)
-                folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap)
-
-                map_result = st_folium(fmap, height=600, width=1000)
-
+                st.session_state.last_path = path
             except Exception as e:
                 st.error(f"Fehler bei der Simulation: {e}")
+
+    if st.session_state.last_path:
+        path = st.session_state.last_path
+        st.markdown("### Ergebnis")
+        st.write(f"Letzter Punkt (Landepunkt): {path[-1]}")
+
+        fmap = folium.Map(location=path[0], zoom_start=9)
+        folium.Marker(path[0], tooltip="Abwurfpunkt", icon=folium.Icon(color="green")).add_to(fmap)
+        folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap)
+        folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap)
+
+        st_folium(fmap, height=600, width=1000)
 
 
 if __name__ == "__main__":
