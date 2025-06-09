@@ -185,7 +185,7 @@ def main():
     with col_rate:
         sinkrate = st.number_input("durchschnittliche Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
     with col_reduce:
-    reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
+        reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
 
     if st.button("Simulation starten"):
         icao_lat_input, icao_lon_input = decimal_to_icao(lat, lon)
