@@ -157,15 +157,25 @@ def main():
         st.subheader("Koordinaten manuell eingeben")
         col1, col2 = st.columns(2)
         with col1:
-            lat = st.number_input("Breitengrad", value=47.37)
+            lat = st.text_input("Breitengrad (z. B. 47.37N oder 47.37S)", value="47.37N")
         with col2:
-            lon = st.number_input("Längengrad", value=8.55)
+            lon = st.text_input("Längengrad (z. B. 8.55E oder 8.55W)", value="8.55E")
+        try:
+            lat = float(lat[:-1]) * (1 if lat[-1].upper() == 'N' else -1)
+            lon = float(lon[:-1]) * (1 if lon[-1].upper() == 'E' else -1)
+        except:
+            st.stop()
     else:
         col1, col2 = st.columns(2)
         with col1:
-            lat = st.number_input("Breitengrad", value=47.37)
+            lat = st.text_input("Breitengrad (z. B. 47.37N oder 47.37S)", value="47.37N")
         with col2:
-            lon = st.number_input("Längengrad", value=8.55)
+            lon = st.text_input("Längengrad (z. B. 8.55E oder 8.55W)", value="8.55E")
+        try:
+            lat = float(lat[:-1]) * (1 if lat[-1].upper() == 'N' else -1)
+            lon = float(lon[:-1]) * (1 if lon[-1].upper() == 'E' else -1)
+        except:
+            st.stop()
 
     alt = st.number_input("Abstiegshöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
     sink_rate = st.slider("Maximale Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
