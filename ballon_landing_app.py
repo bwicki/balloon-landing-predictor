@@ -152,6 +152,7 @@ def main():
                     </script>
                     """, unsafe_allow_html=True)
                     st.info("Versuche aktuelle Position zu laden … Wenn nichts passiert, Standortfreigabe aktivieren.")
+                    lat, lon = 47.37, 8.55
             except:
                 lat, lon = 47.37, 8.55
         else:
@@ -271,9 +272,20 @@ def main():
         st.write(f"Modelllaufzeit: {model_time}")
 
         bounds = [[min(p[0] for p in path), min(p[1] for p in path)], [max(p[0] for p in path), max(p[1] for p in path)]]
-        fmap_result = folium.Map()
+        fmap_result = folium.Map(location=path[0], zoom_start=10)
         fmap_result.fit_bounds(bounds)
         folium.Marker(path[0], tooltip="Abstiegspunkt", icon=folium.Icon(color="green")).add_to(fmap_result)
+
+        # Wenn aktuelle Position verwendet wurde, markiere sie zusätzlich
+        if use_current:
+            folium.CircleMarker(
+                location=(lat, lon),
+                radius=6,
+                color="orange",
+                fill=True,
+                fill_color="orange",
+                tooltip="Aktuelle Position"
+            ).add_to(fmap_result)
         folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap_result)
         folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
         for i in range(1, len(path)):
