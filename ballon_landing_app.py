@@ -127,6 +127,7 @@ def main():
             lon = 8.55
 
     if input_mode == "Manuell (Koordinaten)":
+        
         col1, col2 = st.columns(2)
         with col1:
             lat_str = st.text_input("Breitengrad (z. B. 47.37N)", value="47.37N")
@@ -139,18 +140,26 @@ def main():
         except:
             st.warning("Bitte gültige Koordinaten eingeben.")
             st.stop()
-        col1, col2 = st.columns(2)
-        with col1:
-            lat_str = st.text_input("Breitengrad (z. B. 47.37N)", value="47.37N")
-        with col2:
-            lon_str = st.text_input("Längengrad (z. B. 8.55E)", value="8.55E")
 
-        try:
-            lat = float(lat_str[:-1]) * (1 if lat_str[-1].upper() == 'N' else -1)
-            lon = float(lon_str[:-1]) * (1 if lon_str[-1].upper() == 'E' else -1)
-        except:
-            st.warning("Bitte gültige Koordinaten eingeben.")
-            st.stop()
+        st.markdown("---")
+        st.markdown("### Koordinaten umrechnen")
+        with st.expander("GMS (Grad, Minuten, Sekunden) → Dezimalgrad"):
+            col_gms1, col_gms2 = st.columns(2)
+            with col_gms1:
+                deg_lat = st.number_input("Breitengrad (Grad)", value=47)
+                min_lat = st.number_input("Breitengrad (Minuten)", value=22)
+                sec_lat = st.number_input("Breitengrad (Sekunden)", value=12.0)
+                hemi_lat = st.selectbox("N/S", ["N", "S"])
+            with col_gms2:
+                deg_lon = st.number_input("Längengrad (Grad)", value=8)
+                min_lon = st.number_input("Längengrad (Minuten)", value=33)
+                sec_lon = st.number_input("Längengrad (Sekunden)", value=0.0)
+                hemi_lon = st.selectbox("E/W", ["E", "W"])
+
+            if st.button("Umrechnen"):
+                dec_lat = (deg_lat + min_lat / 60 + sec_lat / 3600) * (1 if hemi_lat == "N" else -1)
+                dec_lon = (deg_lon + min_lon / 60 + sec_lon / 3600) * (1 if hemi_lon == "E" else -1)
+                st.success(f"Dezimalgrad: {dec_lat:.6f}, {dec_lon:.6f}")
 
     col3, col4, col5 = st.columns(3)
     with col3:
