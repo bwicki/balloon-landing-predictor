@@ -21,25 +21,6 @@ def wind_to_components(speed, direction_deg):
     v = -speed * np.cos(direction_rad)
     return u, v
 
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        alt = st.number_input("Abstiegshöhe (AMSL)", min_value=500, max_value=30000, value=6000, step=100)
-    with col2:
-        sink_rate = st.number_input("Durchschnittliche Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
-    with col3:
-        reduce_ab_hoehe = st.number_input("Sinkrate ab Höhe reduzieren (m)", min_value=0, max_value=1000, value=300, step=50)
-    st.markdown("### Modus- und Datenquellenwahl")
-    col_modus, col_daten = st.columns([1, 1])
-    with col_modus:
-        mode = st.radio("Simulationsmodus", ["Vorwärts: Abstiegspunkt → Landepunkt", "Rückwärts: Zielort → Startpunkt"])
-    with col_daten:
-        model_source = st.radio("Datenquelle", ["Radiosonde (gemessen, wenn verfügbar)", "GFS (Modell, fallback)"])
-    st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
-    st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
-    submitted = st.button("Simulation starten")
-    else:
-        return min_rate
-
 def simulate_descent(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes, reduce_ab_hoehe):
     path = [(lat, lon)]
     dt = 1
@@ -86,17 +67,34 @@ def reverse_projection(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitud
 
     return path[::-1], time
 
+# Dieser Block muss innerhalb einer App-Funktion stehen, z. B. main()
+# Hier als direkter Streamlit-Ausführungsblock
 
-if submitted:
-        # Marker für aktuelle Position setzen
-        if lat and lon:
-            st.session_state.last_clicked_coords = (lat, lon)
+def main():
+    st.title("Ballon-Landepunkt-Prognose")
+
+    # Beispielwerte (diese würden normalerweise per Eingabe kommen)
+    lat = 47.37
+    lon = 8.55
+    alt = 6000
+    sink_rate = 4.5
+    reduce_ab_hoehe = 300
+    mode = "Vorwärts"
+
+    submitted = st.button("Simulation starten")
+
+    if submitted:
+        st.session_state.last_clicked_coords = (lat, lon)
 
         with st.spinner("Hole Winddaten und berechne Pfad ..."):
             try:
-                wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
+                # Beispiel-Dummy: ersetze dies mit fetch_gfs_profile()
+                wind_speeds = np.linspace(2, 10, 20)
+                wind_dirs = np.linspace(90, 270, 20)
+                altitudes = np.linspace(0, 6000, 20)
+                model_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
                 st.success(f"Winddaten aus Modelllauf: {model_time}")
-                # Visualisierung Vertikalprofil
                 st.markdown("### Vertikalprofil (Wind)")
                 fig, ax1 = plt.subplots()
                 ax1.plot(wind_speeds, altitudes, label="Windgeschwindigkeit [m/s]", color="tab:blue")
@@ -116,7 +114,7 @@ if submitted:
             except Exception as e:
                 st.error(f"Fehler bei der Simulation: {e}")
 
-    if st.session_state.last_path:
+    if st.session_state.get("last_path"):
         path = st.session_state.last_path
         total_time = st.session_state.last_duration
         model_time = st.session_state.model_run_time
@@ -130,13 +128,15 @@ if submitted:
         st.write(f"Abstiegsdauer: {total_time/60:.1f} Minuten")
         st.write(f"Modelllaufzeit: {model_time}")
 
-        from folium import Map, FitBounds
-
         bounds = [[min(p[0] for p in path), min(p[1] for p in path)], [max(p[0] for p in path), max(p[1] for p in path)]]
-        fmap_result = Map()
+        fmap_result = folium.Map()
         fmap_result.fit_bounds(bounds)
         folium.Marker(path[0], tooltip="Abstiegspunkt", icon=folium.Icon(color="green")).add_to(fmap_result)
         folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap_result)
         folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
 
         st_folium(fmap_result, height=500, use_container_width=True)
+
+
+if __name__ == "__main__":
+    main()
