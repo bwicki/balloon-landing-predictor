@@ -138,7 +138,7 @@ def main():
                     lat, lon = map(float, coords[0].split(","))
                     st.success(f"Verwendete Position: {lat:.5f}, {lon:.5f}")
                 else:
-                st.markdown("""
+                    st.markdown("""
                 <script>
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
