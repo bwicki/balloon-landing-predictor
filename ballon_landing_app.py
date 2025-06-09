@@ -138,7 +138,6 @@ def main():
                     lat, lon = map(float, coords[0].split(","))
                     st.success(f"Verwendete Position: {lat:.5f}, {lon:.5f}")
                 else:
-            try:
                 st.markdown("""
                 <script>
                 navigator.geolocation.getCurrentPosition(
@@ -154,7 +153,6 @@ def main():
                 """, unsafe_allow_html=True)
                 st.info("Versuche aktuelle Position zu laden … Wenn nichts passiert, Standortfreigabe aktivieren.")
                 lat, lon = 47.37, 8.55
-            except:
                 lat, lon = 47.37, 8.55
     else:
         
