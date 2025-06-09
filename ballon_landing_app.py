@@ -35,65 +35,9 @@ def wind_to_components(speed, direction_deg):
     st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
     submitted = st.button("Simulation starten")
 
-    if submitted:
-        # Marker für aktuelle Position setzen
-        if lat and lon:
-            st.session_state.last_clicked_coords = (lat, lon)
+    
 
-        with st.spinner("Hole Winddaten und berechne Pfad ..."):
-            try:
-                wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
-                st.success(f"Winddaten aus Modelllauf: {model_time}")
-                # Visualisierung Vertikalprofil
-                st.markdown("### Vertikalprofil (Wind)")
-                fig, ax1 = plt.subplots()
-                ax1.plot(wind_speeds, altitudes, label="Windgeschwindigkeit [m/s]", color="tab:blue")
-                ax1.set_xlabel("Windgeschwindigkeit [m/s]")
-                ax1.set_ylabel("Höhe [m]")
-                ax1.grid(True)
-                st.pyplot(fig)
-
-                if mode.startswith("Vorwärts"):
-                    path, total_time = simulate_descent(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes, reduce_ab_hoehe)
-                else:
-                    path, total_time = reverse_projection(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes, reduce_ab_hoehe)
-
-                st.session_state.last_path = path
-                st.session_state.last_duration = total_time
-                st.session_state.model_run_time = model_time
-            except Exception as e:
-                st.error(f"Fehler bei der Simulation: {e}")
-
-    if st.session_state.last_path:
-        path = st.session_state.last_path
-        total_time = st.session_state.last_duration
-        model_time = st.session_state.model_run_time
-
-        st.markdown("### Ergebnis")
-        if mode.startswith("Vorwärts"):
-            st.write(f"Letzter Punkt (Landepunkt): {path[-1]}")
-        else:
-            st.write(f"Erforderlicher Startpunkt: {path[0]}")
-
-        st.write(f"Abstiegsdauer: {total_time/60:.1f} Minuten")
-        st.write(f"Modelllaufzeit: {model_time}")
-
-        from folium import Map
-
-        bounds = [[min(p[0] for p in path), min(p[1] for p in path)], [max(p[0] for p in path), max(p[1] for p in path)]]
-        fmap_result = Map()
-        fmap_result.fit_bounds(bounds)
-        folium.Marker(path[0], tooltip="Abstiegspunkt", icon=folium.Icon(color="green")).add_to(fmap_result)
-        folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap_result)
-        folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
-
-        st_folium(fmap_result, height=500, use_container_width=True)
-
-    def interpolate_sinkrate(alt, base_rate=4.5, min_rate=0.5, reduce_below=300):
-    if alt > reduce_below:
-        return base_rate
-    elif alt > 100:
-        return min_rate + (alt - 100) / (reduce_below - 100) * (base_rate - min_rate)
+     + (alt - 100) / (reduce_below - 100) * (base_rate - min_rate)
     else:
         return min_rate
 
@@ -197,3 +141,6 @@ if submitted:
         folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
 
         st_folium(fmap_result, height=500, use_container_width=True)
+
+
+
