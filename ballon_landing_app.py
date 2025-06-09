@@ -145,17 +145,29 @@ def main():
     st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="wide")
     st.title("🎈 Ballon-Landepunkt-Vorhersage")
 
-    st.markdown("**Eingabemethode & Simulationsmodus**")
-    eingabeart = st.radio("Eingabemethode", ["Interaktive Karte", "Manuelle Koordinaten"])
-    modus = st.radio("Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"])
+    col_input, col_mode = st.columns(2)
+    with col_input:
+        eingabeart = st.radio("Eingabemethode", ["Interaktive Karte", "Manuelle Koordinaten"])
+    with col_mode:
+        modus = st.radio("Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"])
+"Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"])
     
     if eingabeart == "Interaktive Karte":
         st.markdown("Wähle den Punkt durch Klick auf die Karte:")
         start_location = [47.3769, 8.5417]
         m = folium.Map(location=start_location, zoom_start=6)
-        marker = folium.Marker(location=start_location, draggable=True)
-        marker.add_to(m)
         map_data = st_folium(m, height=400)
+
+        if map_data and map_data.get("last_clicked"):
+            lat = map_data["last_clicked"]["lat"]
+            lon = map_data["last_clicked"]["lng"]
+            m = folium.Map(location=[lat, lon], zoom_start=8)
+            folium.Marker([lat, lon], tooltip="Abstiegspunkt").add_to(m)
+            st_folium(m, height=400)
+            st.write(f"**Gewählter Punkt:** {lat:.5f}, {lon:.5f}")
+        else:
+            lat = start_location[0]
+            lon = start_location[1]
 
         if map_data and map_data.get("last_clicked"):
             lat = map_data["last_clicked"]["lat"]
@@ -170,16 +182,19 @@ def main():
         with col_lon:
             lon = st.number_input("Längengrad (dezimal)", value=8.5417)
 
-    col_alt, col_rate = st.columns(2)
+    col_alt, col_rate, col_reduce = st.columns(3)
     with col_alt:
         altitude = st.number_input("Abstiegshöhe (m AMSL)", value=6000, min_value=100, max_value=30000)
     with col_rate:
-        sinkrate = st.number_input("Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
+        sinkrate = st.number_input("durchschnittliche Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
+    with col_reduce:
+        reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
 
     reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
 
     if st.button("Simulation starten"):
-        st.write(f"**Verwendete Koordinaten:** {lat:.5f}, {lon:.5f}")
+        icao_lat_input, icao_lon_input = decimal_to_icao(lat, lon)
+        st.write(f"**Verwendete Koordinaten:** {icao_lat_input}, {icao_lon_input}")
         try:
             wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
             if modus.startswith("Vorwärts"):
