@@ -93,7 +93,7 @@ def fetch_radiosonde_profile(lat, lon):
     try:
         socket.gethostbyname("api.skewt.org")
     except socket.gaierror:
-        raise ConnectionError("Die Adresse 'api.skewt.org' konnte nicht aufgelöst werden. Bitte GFS-Fallback aktivieren.")
+        raise ConnectionError("Die Adresse 'api.skewt.org' konnte nicht aufgelöst werden. Eine nahegelegene aktuelle Radiosondenmessung konnte nicht gefunden werden – es wird empfohlen, den GFS-Fallback im Menü zu aktivieren.")
 
     nearest_url = f"https://api.skewt.org/nearest?lat={lat}&lon={lon}"
     nearest_response = requests.get(nearest_url, timeout=5)
@@ -126,8 +126,7 @@ def main():
     st.title("\U0001F30D Ballon-Landepunkt-Vorhersage")
 
     st.markdown("""
-    Dieses Tool berechnet entweder den wahrscheinlichen Landepunkt eines Ballons oder den erforderlichen Abwurfort,
-    um ein bestimmtes Ziel am Boden zu erreichen. Es verwendet aktuelle Winddaten (GFS oder ICON-D2, mit Höhenprofilen).
+    Dieses Tool berechnet entweder den wahrscheinlichen Landepunkt eines Ballons oder den erforderlichen Abstiegspunkt, um ein bestimmtes Ziel am Boden zu erreichen. Es verwendet aktuelle Winddaten (GFS oder ICON-D2, mit Höhenprofilen).
     """)
 
     if "last_path" not in st.session_state:
@@ -178,7 +177,7 @@ def main():
             st.stop()
 
     alt = st.number_input("Abstiegshöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
-    sink_rate = st.slider("Maximale Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
+    sink_rate = st.number_input("Maximale Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
     model_source = st.radio("Datenquelle", ["Radiosonde (gemessen, wenn verfügbar)", "GFS (Modell, fallback)"])
     st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
     submitted = st.button("Simulation starten")
