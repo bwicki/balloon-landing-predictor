@@ -162,8 +162,7 @@ def main():
     alt = st.number_input("Abstiegshöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
     sink_rate = st.slider("Maximale Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
     model_source = st.radio("Datenquelle", ["Radiosonde (gemessen, wenn verfügbar)", "GFS (Modell, fallback)"])
-")
-st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
+    st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
     submitted = st.button("Simulation starten")
 
     if submitted:
