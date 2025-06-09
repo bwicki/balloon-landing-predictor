@@ -102,7 +102,7 @@ def fetch_radiosonde_profile(lat, lon):
 
     # 2. Lade Profil
     profile_url = f"https://api.skewt.org/?wmo_id={nearest_data['wmo_id']}"
-        profile_response = requests.get(profile_url, timeout=5)
+    profile_response = requests.get(profile_url, timeout=5)
     profile_data = profile_response.json()
 
     altitudes = []
