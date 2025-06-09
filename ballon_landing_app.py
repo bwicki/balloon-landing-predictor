@@ -121,6 +121,23 @@ def fetch_radiosonde_profile(lat, lon):
 
 import matplotlib.pyplot as plt
 
+def fetch_gfs_model(lat, lon):
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "hourly": "wind_speed_100m,wind_direction_100m",
+        "forecast_days": 1,
+        "timezone": "UTC"
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    wind_speeds = [float(ws) for ws in data['hourly']['wind_speed_100m'][:20]]
+    wind_dirs = [float(wd) for wd in data['hourly']['wind_direction_100m'][:20]]
+    altitudes = np.linspace(100, 2000, len(wind_speeds))
+    model_time = data['hourly']['time'][0]
+    return np.array(wind_speeds), np.array(wind_dirs), altitudes, model_time
+
 def main():
     st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="wide")
     st.title("\U0001F30D Ballon-Landepunkt-Vorhersage")
@@ -144,7 +161,14 @@ def main():
         map_center = [47.37, 8.55]
         fmap = folium.Map(location=map_center, zoom_start=6)
         fmap.add_child(folium.LatLngPopup())
+        if "last_clicked_coords" in st.session_state:
+            folium.Marker(st.session_state.last_clicked_coords, tooltip="Gewählter Punkt", icon=folium.Icon(color="blue")).add_to(fmap)
         map_result = st_folium(fmap, height=500, use_container_width=True)
+
+        if map_result and map_result.get("last_clicked"):
+            lat = map_result["last_clicked"]["lat"]
+            lon = map_result["last_clicked"]["lng"]
+            st.session_state.last_clicked_coords = (lat, lon)
 
         if map_result and map_result.get("last_clicked"):
             lat = map_result["last_clicked"]["lat"]
@@ -176,13 +200,20 @@ def main():
         except:
             st.stop()
 
-    alt = st.number_input("Abstiegshöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
-    sink_rate = st.number_input("Maximale Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
+    col1, col2 = st.columns(2)
+    with col1:
+        alt = st.number_input("Abstiegshöhe (AMSL)", min_value=500, max_value=30000, value=6000, step=100)
+    with col2:
+        sink_rate = st.number_input("Durchschnittliche Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
     model_source = st.radio("Datenquelle", ["Radiosonde (gemessen, wenn verfügbar)", "GFS (Modell, fallback)"])
     st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
     submitted = st.button("Simulation starten")
 
     if submitted:
+        # Marker für aktuelle Position setzen
+        if lat and lon:
+            st.session_state.last_clicked_coords = (lat, lon)
+
         with st.spinner("Hole Winddaten und berechne Pfad ..."):
             try:
                 wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
