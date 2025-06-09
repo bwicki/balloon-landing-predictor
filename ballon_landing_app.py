@@ -87,7 +87,7 @@ def main():
                 folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap)
                 folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap)
 
-                st_folium(fmap, height=600, width=1000)
+                map_result = st_folium(fmap, height=600, width=1000)
 
             except Exception as e:
                 st.error(f"Fehler bei der Simulation: {e}")
