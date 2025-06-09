@@ -7,16 +7,19 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 
+def interpolate_sinkrate(alt, base_rate=4.5, min_rate=0.5, reduce_below=300):
+    if alt > reduce_below:
+        return base_rate
+    elif alt > 100:
+        return min_rate + (alt - 100) / (reduce_below - 100) * (base_rate - min_rate)
+    else:
+        return min_rate
+
 def wind_to_components(speed, direction_deg):
     direction_rad = np.deg2rad(direction_deg)
     u = -speed * np.sin(direction_rad)
     v = -speed * np.cos(direction_rad)
     return u, v
-
-
-
-        except:
-            st.stop()
 
     col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
@@ -34,10 +37,6 @@ def wind_to_components(speed, direction_deg):
     st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
     st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
     submitted = st.button("Simulation starten")
-
-    
-
-     + (alt - 100) / (reduce_below - 100) * (base_rate - min_rate)
     else:
         return min_rate
 
@@ -141,6 +140,3 @@ if submitted:
         folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
 
         st_folium(fmap_result, height=500, use_container_width=True)
-
-
-
