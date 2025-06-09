@@ -138,40 +138,24 @@ def main():
                     lat, lon = map(float, coords[0].split(","))
                     st.success(f"Verwendete Position: {lat:.5f}, {lon:.5f}")
                 else:
-                    st.markdown("""
-                    <script>
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                            const lat = pos.coords.latitude;
-                            const lon = pos.coords.longitude;
-                            const query = new URLSearchParams(window.location.search);
-                            query.set('gps_coords', `${lat},${lon}`);
-                            window.location.search = query.toString();
-                        }
-                    );
-                    </script>
-                    """, unsafe_allow_html=True)
-                    st.info("Versuche aktuelle Position zu laden … Wenn nichts passiert, Standortfreigabe aktivieren.")
-                    lat, lon = 47.37, 8.55
+            try:
+                st.markdown("""
+                <script>
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const lat = pos.coords.latitude;
+                        const lon = pos.coords.longitude;
+                        const query = new URLSearchParams(window.location.search);
+                        query.set('gps_coords', `${lat},${lon}`);
+                        window.location.search = query.toString();
+                    }
+                );
+                </script>
+                """, unsafe_allow_html=True)
+                st.info("Versuche aktuelle Position zu laden … Wenn nichts passiert, Standortfreigabe aktivieren.")
+                lat, lon = 47.37, 8.55
             except:
                 lat, lon = 47.37, 8.55
-        else:
-            st.markdown("""
-            <script>
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lon = pos.coords.longitude;
-                    const query = new URLSearchParams(window.location.search);
-                    query.set('gps_coords', `${lat},${lon}`);
-                    window.location.search = query.toString();
-                }
-            );
-            </script>
-            """, unsafe_allow_html=True)
-            st.info("Versuche aktuelle Position zu laden … Wenn nichts passiert, Standortfreigabe aktivieren.")
-        except:
-            lat, lon = 47.37, 8.55
     else:
         
         col1, col2 = st.columns(2)
@@ -269,6 +253,33 @@ def main():
             st.markdown(f"[→ In Google Maps öffnen]({gmap_url})")
 
         st.write(f"Abstiegsdauer: {total_time/60:.1f} Minuten")
+
+        # Horizontale Distanz und Richtung berechnen
+        from geopy.distance import geodesic
+        from math import atan2, degrees, radians, sin, cos
+
+        def calculate_bearing(start_lat, start_lon, end_lat, end_lon):
+            dLon = radians(end_lon - start_lon)
+            lat1 = radians(start_lat)
+            lat2 = radians(end_lat)
+
+            x = sin(dLon) * cos(lat2)
+            y = cos(lat1) * sin(lat2) - (sin(lat1) * cos(lat2) * cos(dLon))
+            initial_bearing = atan2(x, y)
+            compass_bearing = (degrees(initial_bearing) + 360) % 360
+            return compass_bearing
+
+        start = path[0]
+        end = path[-1]
+        distance_km = geodesic(start, end).km
+        bearing_deg = calculate_bearing(start[0], start[1], end[0], end[1])
+
+        st.write(f"Horizontale Distanz: {distance_km:.2f} km")
+        st.write(f"Richtung: {bearing_deg:.0f}°")
+
+        google_coord = f"{result_coords[0]},{result_coords[1]}"
+        st.text_input("Koordinaten zum Kopieren (Google Maps Format)", value=google_coord, label_visibility="collapsed")
+        st.markdown(f"[📍 Direkt öffnen in Google Maps](https://www.google.com/maps?q={google_coord})")
         st.write(f"Modelllaufzeit: {model_time}")
 
         bounds = [[min(p[0] for p in path), min(p[1] for p in path)], [max(p[0] for p in path), max(p[1] for p in path)]]
