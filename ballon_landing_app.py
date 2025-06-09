@@ -109,3 +109,39 @@ def show_wind_profile(wind_speeds, altitudes, model_time):
         for alt, ws in zip(altitudes, wind_speeds)
     ]
     st.table(profile_data)
+
+def main():
+    st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="centered")
+    st.title("🎈 Ballon-Landepunkt-Vorhersage")
+
+    st.markdown("Wähle den Startpunkt auf der Karte und gib Höhe und Sinkrate an.")
+
+    # Karte für Startpunktwahl
+    start_location = [47.3769, 8.5417]  # Zürich als Default
+    m = folium.Map(location=start_location, zoom_start=6)
+    marker = folium.Marker(location=start_location, draggable=True)
+    marker.add_to(m)
+    map_data = st_folium(m, height=400)
+
+    if map_data and map_data.get("last_clicked"):
+        lat = map_data["last_clicked"]["lat"]
+        lon = map_data["last_clicked"]["lng"]
+    else:
+        lat = start_location[0]
+        lon = start_location[1]
+
+    altitude = st.number_input("Abstiegshöhe (m AMSL)", value=6000, min_value=100, max_value=30000)
+    sinkrate = st.number_input("Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
+    reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
+
+    if st.button("Simulation starten"):
+        try:
+            wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
+            path, total_time = simulate_descent(lat, lon, altitude, sinkrate, wind_speeds, wind_dirs, altitudes, reduce_below)
+            st.success(f"Simulation abgeschlossen. Dauer: {total_time/60:.1f} min")
+            st.map(data={"lat": [p[0] for p in path], "lon": [p[1] for p in path]})
+        except Exception as e:
+            st.error(str(e))
+
+if __name__ == "__main__":
+    main()
