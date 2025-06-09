@@ -4,6 +4,7 @@ from streamlit_folium import st_folium
 import numpy as np
 import requests
 from datetime import datetime
+import math
 
 # Höhenabfrage (Open-Elevation)
 # GFS Windprofil von Open-Meteo API
@@ -110,35 +111,64 @@ def show_wind_profile(wind_speeds, altitudes, model_time):
     ]
     st.table(profile_data)
 
+def decimal_to_icao(lat, lon):
+    def to_dms(value, is_lat):
+        direction = ('N' if value >= 0 else 'S') if is_lat else ('E' if value >= 0 else 'W')
+        abs_val = abs(value)
+        degrees = int(abs_val)
+        minutes_float = (abs_val - degrees) * 60
+        minutes = int(minutes_float)
+        seconds = round((minutes_float - minutes) * 60)
+        return f"{degrees}°{minutes}'{seconds}\" {direction}"
+    return to_dms(lat, True), to_dms(lon, False)
+
 def main():
-    st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="centered")
+    st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="wide")
     st.title("🎈 Ballon-Landepunkt-Vorhersage")
 
-    st.markdown("Wähle den Startpunkt auf der Karte und gib Höhe und Sinkrate an.")
+    col1, col2 = st.columns(2)
+    with col1:
+        eingabeart = st.radio("Eingabemethode", ["Interaktive Karte", "Manuelle Koordinaten"], horizontal=True)
+    with col2:
+        modus = st.radio("Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"], horizontal=True)
 
-    # Karte für Startpunktwahl
-    start_location = [47.3769, 8.5417]  # Zürich als Default
-    m = folium.Map(location=start_location, zoom_start=6)
-    marker = folium.Marker(location=start_location, draggable=True)
-    marker.add_to(m)
-    map_data = st_folium(m, height=400)
+    if eingabeart == "Interaktive Karte":
+        st.markdown("Wähle den Punkt durch Klick auf die Karte:")
+        start_location = [47.3769, 8.5417]
+        m = folium.Map(location=start_location, zoom_start=6)
+        marker = folium.Marker(location=start_location, draggable=True)
+        marker.add_to(m)
+        map_data = st_folium(m, height=400)
 
-    if map_data and map_data.get("last_clicked"):
-        lat = map_data["last_clicked"]["lat"]
-        lon = map_data["last_clicked"]["lng"]
+        if map_data and map_data.get("last_clicked"):
+            lat = map_data["last_clicked"]["lat"]
+            lon = map_data["last_clicked"]["lng"]
+        else:
+            lat = start_location[0]
+            lon = start_location[1]
     else:
-        lat = start_location[0]
-        lon = start_location[1]
+        lat = st.number_input("Breitengrad (dezimal)", value=47.3769)
+        lon = st.number_input("Längengrad (dezimal)", value=8.5417)
 
     altitude = st.number_input("Abstiegshöhe (m AMSL)", value=6000, min_value=100, max_value=30000)
     sinkrate = st.number_input("Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
     reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
 
     if st.button("Simulation starten"):
+        st.write(f"**Verwendete Koordinaten:** {lat:.5f}, {lon:.5f}")
         try:
             wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
-            path, total_time = simulate_descent(lat, lon, altitude, sinkrate, wind_speeds, wind_dirs, altitudes, reduce_below)
+            if modus.startswith("Vorwärts"):
+                path, total_time = simulate_descent(lat, lon, altitude, sinkrate, wind_speeds, wind_dirs, altitudes, reduce_below)
+            else:
+                path, total_time = reverse_projection(lat, lon, altitude, sinkrate, wind_speeds, wind_dirs, altitudes, reduce_below)
             st.success(f"Simulation abgeschlossen. Dauer: {total_time/60:.1f} min")
+            result_coords = path[-1] if modus.startswith("Vorwärts") else path[0]
+            icao_lat, icao_lon = decimal_to_icao(result_coords[0], result_coords[1])
+            st.markdown(f"**Zielkoordinaten:** {icao_lat}, {icao_lon}")
+            gmap_url = f"https://www.google.com/maps?q={result_coords[0]},{result_coords[1]}"
+            osm_url = f"https://www.openstreetmap.org/?mlat={result_coords[0]}&mlon={result_coords[1]}#map=15/{result_coords[0]}/{result_coords[1]}"
+            st.markdown(f"[🌍 Google Maps öffnen]({gmap_url})  |  [🗺️ OpenStreetMap öffnen]({osm_url})")
             st.map(data={"lat": [p[0] for p in path], "lon": [p[1] for p in path]})
         except Exception as e:
             st.error(str(e))
