@@ -160,9 +160,7 @@ def main():
         if map_data and map_data.get("last_clicked"):
             lat = map_data["last_clicked"]["lat"]
             lon = map_data["last_clicked"]["lng"]
-            m = folium.Map(location=[lat, lon], zoom_start=8)
             folium.Marker([lat, lon], tooltip="Abstiegspunkt").add_to(m)
-            st_folium(m, height=400)
             st.write(f"**Gewählter Punkt:** {lat:.5f}, {lon:.5f}")
         else:
             lat = start_location[0]
@@ -187,8 +185,7 @@ def main():
     with col_rate:
         sinkrate = st.number_input("durchschnittliche Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
     with col_reduce:
-        reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
-
+        
     reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
 
     if st.button("Simulation starten"):
