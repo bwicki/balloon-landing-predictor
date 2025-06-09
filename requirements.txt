@@ -1,5 +1,6 @@
 streamlit
-folium
 streamlit-folium
 numpy
 requests
+matplotlib
+folium
