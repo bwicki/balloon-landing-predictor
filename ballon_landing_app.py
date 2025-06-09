@@ -6,12 +6,22 @@ import requests
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+# Höhenabfrage (Open-Elevation)
+def fetch_terrain_height(lat, lon):
+    try:
+        url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        return data['results'][0]['elevation']
+    except:
+        return 0  # Fallback bei Fehler
 
-def interpolate_sinkrate(alt, base_rate=4.5, min_rate=0.5, reduce_below=300):
-    if alt > reduce_below:
+
+def interpolate_sinkrate(alt_agl, base_rate=4.5, min_rate=0.5, reduce_below=300):
+    if alt_agl > reduce_below:
         return base_rate
-    elif alt > 100:
-        return min_rate + (alt - 100) / (reduce_below - 100) * (base_rate - min_rate)
+    elif alt_agl > 100:
+        return min_rate + (alt_agl - 100) / (reduce_below - 100) * (base_rate - min_rate)
     else:
         return min_rate
 
@@ -22,13 +32,15 @@ def wind_to_components(speed, direction_deg):
     return u, v
 
 def simulate_descent(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes, reduce_ab_hoehe):
+    terrain_alt = fetch_terrain_height(lat, lon)
     path = [(lat, lon)]
     dt = 1
     time = 0
     current_alt = alt
 
     while current_alt > 0:
-        local_sink = interpolate_sinkrate(current_alt, sink_rate, 0.5, reduce_ab_hoehe)
+        alt_agl = current_alt - terrain_alt
+        local_sink = interpolate_sinkrate(alt_agl, sink_rate, 0.5, reduce_ab_hoehe)
         current_alt -= local_sink * dt
         wind_speed = np.interp(current_alt, altitudes, wind_speeds)
         wind_dir = np.interp(current_alt, altitudes, wind_dirs)
@@ -45,13 +57,15 @@ def simulate_descent(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes
     return path, time
 
 def reverse_projection(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes, reduce_ab_hoehe):
+    terrain_alt = fetch_terrain_height(lat, lon)
     path = [(lat, lon)]
     dt = 1
     time = 0
     current_alt = alt
 
     while current_alt > 0:
-        local_sink = interpolate_sinkrate(current_alt, sink_rate, 0.5, reduce_ab_hoehe)
+        alt_agl = current_alt - terrain_alt
+        local_sink = interpolate_sinkrate(alt_agl, sink_rate, 0.5, reduce_ab_hoehe)
         current_alt -= local_sink * dt
         wind_speed = np.interp(current_alt, altitudes, wind_speeds)
         wind_dir = np.interp(current_alt, altitudes, wind_dirs)
@@ -74,9 +88,13 @@ def main():
     st.title("Ballon-Landepunkt-Prognose")
 
     # Eingabemaske für Startparameter
-    st.markdown("### Eingabeparameter")
+    col_mode, col_sim = st.columns(2)
+    with col_mode:
+        input_mode = st.radio("Eingabemodus", ["Manuell (Koordinaten)", "Interaktive Karte"])
+    with col_sim:
+        mode = st.radio("Simulationsmodus", ["Vorwärts", "Rückwärts"])
 
-    input_mode = st.radio("Eingabemodus", ["Manuell (Koordinaten)", "Interaktive Karte"])
+    st.markdown(f"### {'Startpunkt' if mode == 'Vorwärts' else 'Landepunkt'}")
 
     if input_mode == "Interaktive Karte":
         st.markdown("Wähle einen Punkt auf der Karte:")
@@ -111,9 +129,7 @@ def main():
     with col4:
         sink_rate = st.number_input("Durchschnittliche Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
     with col5:
-        reduce_ab_hoehe = st.number_input("Sinkrate reduzieren ab Höhe (m)", min_value=0, max_value=1000, value=300, step=50)
-
-    mode = st.radio("Simulationsmodus", ["Vorwärts", "Rückwärts"])
+        reduce_ab_hoehe = st.number_input("Sinkrate reduzieren ab Höhe (m AGL)", min_value=0, max_value=1000, value=300, step=50)
 
     submitted = st.button("Simulation starten")
 
@@ -135,7 +151,7 @@ def main():
                 ax1.set_xlabel("Windgeschwindigkeit [m/s]")
                 ax1.set_ylabel("Höhe [m]")
                 ax1.grid(True)
-                st.pyplot(fig)
+                st.pyplot(fig, clear_figure=False)
 
                 if mode.startswith("Vorwärts"):
                     path, total_time = simulate_descent(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes, reduce_ab_hoehe)
@@ -154,10 +170,18 @@ def main():
         model_time = st.session_state.model_run_time
 
         st.markdown("### Ergebnis")
+        st.write(f"Geländehöhe am Zielpunkt: {terrain_height:.0f} m AMSL")
+        result_coords = path[-1] if mode.startswith("Vorwärts") else path[0]
+        terrain_height = fetch_terrain_height(result_coords[0], result_coords[1])
+        st.write(f"Geländehöhe am Zielpunkt: {terrain_height:.0f} m AMSL")
+        ns = 'N' if result_coords[0] >= 0 else 'S'
+        ew = 'E' if result_coords[1] >= 0 else 'W'
+        icao_lat = f"{abs(result_coords[0]):.4f}°{ns}"
+        icao_lon = f"{abs(result_coords[1]):.4f}°{ew}"
         if mode.startswith("Vorwärts"):
-            st.write(f"Letzter Punkt (Landepunkt): {path[-1]}")
+            st.write(f"Letzter Punkt (Landepunkt): {icao_lat}, {icao_lon}")
         else:
-            st.write(f"Erforderlicher Startpunkt: {path[0]}")
+            st.write(f"Erforderlicher Startpunkt: {icao_lat}, {icao_lon}")
 
         st.write(f"Abstiegsdauer: {total_time/60:.1f} Minuten")
         st.write(f"Modelllaufzeit: {model_time}")
@@ -168,6 +192,14 @@ def main():
         folium.Marker(path[0], tooltip="Abstiegspunkt", icon=folium.Icon(color="green")).add_to(fmap_result)
         folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap_result)
         folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
+        for i in range(1, len(path)):
+            folium.CircleMarker(
+                location=path[i],
+                radius=2,
+                color='blue',
+                fill=True,
+                fill_opacity=0.6
+            ).add_to(fmap_result)
 
         st_folium(fmap_result, height=500, use_container_width=True)
 
