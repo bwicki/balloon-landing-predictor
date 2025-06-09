@@ -16,6 +16,9 @@ def fetch_gfs_profile(lat, lon):
         response = requests.get(url, timeout=10)
         data = response.json()
 
+        if 'hourly' not in data or 'wind_speed_100m' not in data['hourly']:
+            raise RuntimeError("Die GFS-Antwort enthält keine gültigen Winddaten.")
+
         wind_speeds = [ws for ws in data['hourly']['wind_speed_100m'][:20]]
         wind_dirs = [wd for wd in data['hourly']['wind_direction_100m'][:20]]
         altitudes = np.linspace(0, 6000, len(wind_speeds))
@@ -127,6 +130,48 @@ def main():
             lon = 8.55
 
     if input_mode == "Manuell (Koordinaten)":
+        use_current = st.checkbox("Abstieg von aktueller Position")
+        if use_current:
+            try:
+                coords = st.experimental_get_query_params().get("gps_coords")
+                if coords:
+                    lat, lon = map(float, coords[0].split(","))
+                    st.success(f"Verwendete Position: {lat:.5f}, {lon:.5f}")
+                else:
+                    st.markdown("""
+                    <script>
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                            const lat = pos.coords.latitude;
+                            const lon = pos.coords.longitude;
+                            const query = new URLSearchParams(window.location.search);
+                            query.set('gps_coords', `${lat},${lon}`);
+                            window.location.search = query.toString();
+                        }
+                    );
+                    </script>
+                    """, unsafe_allow_html=True)
+                    st.info("Versuche aktuelle Position zu laden … Wenn nichts passiert, Standortfreigabe aktivieren.")
+            except:
+                lat, lon = 47.37, 8.55
+        else:
+            st.markdown("""
+            <script>
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const query = new URLSearchParams(window.location.search);
+                    query.set('gps_coords', `${lat},${lon}`);
+                    window.location.search = query.toString();
+                }
+            );
+            </script>
+            """, unsafe_allow_html=True)
+            st.info("Versuche aktuelle Position zu laden … Wenn nichts passiert, Standortfreigabe aktivieren.")
+        except:
+            lat, lon = 47.37, 8.55
+    else:
         
         col1, col2 = st.columns(2)
         with col1:
@@ -213,8 +258,14 @@ def main():
         icao_lon = f"{abs(result_coords[1]):.4f}°{ew}"
         if mode.startswith("Vorwärts"):
             st.write(f"Letzter Punkt (Landepunkt): {icao_lat}, {icao_lon}")
+            gmap_url = f"https://www.google.com/maps?q={result_coords[0]},{result_coords[1]}"
+            st.markdown(f"[→ In Google Maps öffnen]({gmap_url})")
+        osm_url = f"https://www.openstreetmap.org/?mlat={result_coords[0]}&mlon={result_coords[1]}#map=15/{result_coords[0]}/{result_coords[1]}"
+        st.markdown(f"[→ In OpenStreetMap öffnen]({osm_url})")
         else:
             st.write(f"Erforderlicher Startpunkt: {icao_lat}, {icao_lon}")
+            gmap_url = f"https://www.google.com/maps?q={result_coords[0]},{result_coords[1]}"
+            st.markdown(f"[→ In Google Maps öffnen]({gmap_url})")
 
         st.write(f"Abstiegsdauer: {total_time/60:.1f} Minuten")
         st.write(f"Modelllaufzeit: {model_time}")
@@ -251,6 +302,20 @@ def main():
         }, period="PT1M", add_last_point=True, transition_time=200, loop=False, auto_play=True).add_to(fmap_result)
 
         st_folium(fmap_result, height=500, use_container_width=True)
+
+        # GPX-Export ermöglichen
+        import xml.etree.ElementTree as ET
+        from io import BytesIO
+
+        gpx = ET.Element("gpx", version="1.1", creator="Balloon Predictor")
+        trk = ET.SubElement(gpx, "trk")
+        trkseg = ET.SubElement(trk, "trkseg")
+        for latpt, lonpt in path:
+            ET.SubElement(trkseg, "trkpt", lat=str(latpt), lon=str(lonpt))
+
+        gpx_bytes = BytesIO()
+        ET.ElementTree(gpx).write(gpx_bytes, encoding='utf-8', xml_declaration=True)
+        st.download_button("GPX-Datei herunterladen", data=gpx_bytes.getvalue(), file_name="ballonflug.gpx", mime="application/gpx+xml")
 
 
 if __name__ == "__main__":
