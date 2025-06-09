@@ -145,7 +145,7 @@ def main():
         map_center = [47.37, 8.55]
         fmap = folium.Map(location=map_center, zoom_start=6)
         fmap.add_child(folium.LatLngPopup())
-        map_result = st_folium(fmap, height=500, width=1000, returned_objects=["last_clicked"], use_container_width=True)
+        map_result = st_folium(fmap, height=500, use_container_width=True)
 
         if map_result and map_result.get("last_clicked"):
             lat = map_result["last_clicked"]["lat"]
