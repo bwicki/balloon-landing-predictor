@@ -75,8 +75,15 @@ def reverse_projection(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitud
 
 
 def fetch_gfs_profile(lat, lon):
-    # Alte Funktion behalten für Fallback oder Vergleich
-    return fetch_radiosonde_profile(lat, lon)
+    fallback = st.session_state.get("fallback_to_gfs", False)
+    try:
+        return fetch_radiosonde_profile(lat, lon)
+    except Exception as e:
+        if fallback:
+            st.warning("Radiosondenprofil nicht verfügbar. GFS-Daten werden verwendet.")
+            return fetch_gfs_model(lat, lon)
+        else:
+            raise e
 
 def fetch_radiosonde_profile(lat, lon):
         # 1. Finde nächste Station
@@ -103,6 +110,8 @@ def fetch_radiosonde_profile(lat, lon):
     model_time = profile_data["time"]
     return np.array(wind_speeds), np.array(wind_dirs), np.array(altitudes), model_time
 
+
+import matplotlib.pyplot as plt
 
 def main():
     st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="wide")
@@ -150,9 +159,11 @@ def main():
         with col2:
             lon = st.number_input("Längengrad", value=8.55)
 
-    alt = st.number_input("Abwurfhöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
+    alt = st.number_input("Abstiegshöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
     sink_rate = st.slider("Maximale Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
-    model_source = st.selectbox("Datenquelle", ["GFS (global)"])
+    model_source = st.radio("Datenquelle", ["Radiosonde (gemessen, wenn verfügbar)", "GFS (Modell, fallback)"])
+")
+st.session_state["fallback_to_gfs"] = (model_source == "GFS (Modell, fallback)")
     submitted = st.button("Simulation starten")
 
     if submitted:
@@ -160,6 +171,14 @@ def main():
             try:
                 wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
                 st.success(f"Winddaten aus Modelllauf: {model_time}")
+                # Visualisierung Vertikalprofil
+                st.markdown("### Vertikalprofil (Wind)")
+                fig, ax1 = plt.subplots()
+                ax1.plot(wind_speeds, altitudes, label="Windgeschwindigkeit [m/s]", color="tab:blue")
+                ax1.set_xlabel("Windgeschwindigkeit [m/s]")
+                ax1.set_ylabel("Höhe [m]")
+                ax1.grid(True)
+                st.pyplot(fig)
 
                 if mode.startswith("Vorwärts"):
                     path, total_time = simulate_descent(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitudes)
