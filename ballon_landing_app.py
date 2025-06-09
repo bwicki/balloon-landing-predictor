@@ -127,9 +127,18 @@ def main():
             lon = 8.55
 
     if input_mode == "Manuell (Koordinaten)":
-            lat = 47.37
-            lon = 8.55
-    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            lat_str = st.text_input("Breitengrad (z. B. 47.37N)", value="47.37N")
+        with col2:
+            lon_str = st.text_input("Längengrad (z. B. 8.55E)", value="8.55E")
+
+        try:
+            lat = float(lat_str[:-1]) * (1 if lat_str[-1].upper() == 'N' else -1)
+            lon = float(lon_str[:-1]) * (1 if lon_str[-1].upper() == 'E' else -1)
+        except:
+            st.warning("Bitte gültige Koordinaten eingeben.")
+            st.stop()
         col1, col2 = st.columns(2)
         with col1:
             lat_str = st.text_input("Breitengrad (z. B. 47.37N)", value="47.37N")
@@ -208,13 +217,29 @@ def main():
         folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap_result)
         folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
         for i in range(1, len(path)):
-            folium.CircleMarker(
+            folium.RegularPolygonMarker(
                 location=path[i],
-                radius=2,
+                number_of_sides=3,
+                radius=6,
+                rotation=wind_dirs[min(i, len(wind_dirs)-1)],
                 color='blue',
                 fill=True,
-                fill_opacity=0.6
+                fill_opacity=0.7
             ).add_to(fmap_result)
+
+        from streamlit.components.v1 import html
+        from folium.plugins import TimestampedGeoJson
+
+        animated_features = [{
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [pt[1], pt[0]]},
+            "properties": {"time": f"{i:02d}:00:00", "style": {"color": "red"}, "icon": "circle"}
+        } for i, pt in enumerate(path)]
+
+        TimestampedGeoJson({
+            "type": "FeatureCollection",
+            "features": animated_features
+        }, period="PT1M", add_last_point=True, transition_time=200, loop=False, auto_play=True).add_to(fmap_result)
 
         st_folium(fmap_result, height=500, use_container_width=True)
 
