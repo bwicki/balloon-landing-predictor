@@ -85,16 +85,24 @@ def fetch_gfs_profile(lat, lon):
         else:
             raise e
 
+import socket
+
 def fetch_radiosonde_profile(lat, lon):
         # 1. Finde nächste Station
+        # Prüfen, ob Domain aufgelöst werden kann
+    try:
+        socket.gethostbyname("api.skewt.org")
+    except socket.gaierror:
+        raise ConnectionError("Die Adresse 'api.skewt.org' konnte nicht aufgelöst werden. Bitte GFS-Fallback aktivieren.")
+
     nearest_url = f"https://api.skewt.org/nearest?lat={lat}&lon={lon}"
-    nearest_response = requests.get(nearest_url)
+    nearest_response = requests.get(nearest_url, timeout=5)
     nearest_data = nearest_response.json()
     st.write("**Nächstgelegene Radiosondenstation:**", nearest_data["station"], f"(WMO-ID: {nearest_data['wmo_id']})")
 
     # 2. Lade Profil
     profile_url = f"https://api.skewt.org/?wmo_id={nearest_data['wmo_id']}"
-    profile_response = requests.get(profile_url)
+        profile_response = requests.get(profile_url, timeout=5)
     profile_data = profile_response.json()
 
     altitudes = []
@@ -137,7 +145,7 @@ def main():
         map_center = [47.37, 8.55]
         fmap = folium.Map(location=map_center, zoom_start=6)
         fmap.add_child(folium.LatLngPopup())
-        map_result = st_folium(fmap, height=600, width=1000)
+        map_result = st_folium(fmap, height=500, width=1000, returned_objects=["last_clicked"], use_container_width=True)
 
         if map_result and map_result.get("last_clicked"):
             lat = map_result["last_clicked"]["lat"]
