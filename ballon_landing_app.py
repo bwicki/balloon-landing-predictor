@@ -75,23 +75,33 @@ def reverse_projection(lat, lon, alt, sink_rate, wind_speeds, wind_dirs, altitud
 
 
 def fetch_gfs_profile(lat, lon):
-    url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "hourly": "wind_speed_100m,wind_direction_100m",
-        "windspeed_unit": "ms",
-        "timezone": "UTC"
-    }
-    r = requests.get(url, params=params)
-    data = r.json()
-    ws = data["hourly"]["wind_speed_100m"][0]
-    wd = data["hourly"]["wind_direction_100m"][0]
-    model_time = data["hourly"]["time"][0]
-    altitudes = np.array([100, 200, 400, 600, 800, 1000, 2000, 4000, 6000])
-    wind_speeds = np.full_like(altitudes, ws)
-    wind_dirs = np.full_like(altitudes, wd)
-    return wind_speeds, wind_dirs, altitudes, model_time
+    # Alte Funktion behalten für Fallback oder Vergleich
+    return fetch_radiosonde_profile(lat, lon)
+
+def fetch_radiosonde_profile(lat, lon):
+        # 1. Finde nächste Station
+    nearest_url = f"https://api.skewt.org/nearest?lat={lat}&lon={lon}"
+    nearest_response = requests.get(nearest_url)
+    nearest_data = nearest_response.json()
+    st.write("**Nächstgelegene Radiosondenstation:**", nearest_data["station"], f"(WMO-ID: {nearest_data['wmo_id']})")
+
+    # 2. Lade Profil
+    profile_url = f"https://api.skewt.org/?wmo_id={nearest_data['wmo_id']}"
+    profile_response = requests.get(profile_url)
+    profile_data = profile_response.json()
+
+    altitudes = []
+    wind_speeds = []
+    wind_dirs = []
+
+    for level in profile_data["profile"]:
+        if all(k in level for k in ["z", "wind_speed", "wind_dir"]):
+            altitudes.append(level["z"])
+            wind_speeds.append(level["wind_speed"])
+            wind_dirs.append(level["wind_dir"])
+
+    model_time = profile_data["time"]
+    return np.array(wind_speeds), np.array(wind_dirs), np.array(altitudes), model_time
 
 
 def main():
@@ -111,18 +121,34 @@ def main():
     st.sidebar.header("Moduswahl")
     mode = st.sidebar.radio("Berechnungsrichtung", ["Vorwärts: Startpunkt → Landepunkt", "Rückwärts: Zielpunkt → Startort"])
 
-    st.subheader("Start-/Zielpunkt interaktiv auf Karte wählen")
-    map_center = [47.37, 8.55]
-    fmap = folium.Map(location=map_center, zoom_start=6)
-    fmap.add_child(folium.LatLngPopup())
-    map_result = st_folium(fmap, height=400, width=700)
+    input_mode = st.radio("Positions-Eingabe", ["Interaktive Karte", "Koordinateneingabe"])
 
-    if map_result and map_result.get("last_clicked"):
-        lat = map_result["last_clicked"]["lat"]
-        lon = map_result["last_clicked"]["lng"]
+    if input_mode == "Interaktive Karte":
+        st.subheader("Punkt auf Karte wählen")
+        map_center = [47.37, 8.55]
+        fmap = folium.Map(location=map_center, zoom_start=6)
+        fmap.add_child(folium.LatLngPopup())
+        map_result = st_folium(fmap, height=600, width=1000)
+
+        if map_result and map_result.get("last_clicked"):
+            lat = map_result["last_clicked"]["lat"]
+            lon = map_result["last_clicked"]["lng"]
+        else:
+            lat, lon = None, None
+
+    if input_mode == "Koordinateneingabe" or (input_mode == "Interaktive Karte" and lat is None):
+        st.subheader("Koordinaten manuell eingeben")
+        col1, col2 = st.columns(2)
+        with col1:
+            lat = st.number_input("Breitengrad", value=47.37)
+        with col2:
+            lon = st.number_input("Längengrad", value=8.55)
     else:
-        lat = 47.37
-        lon = 8.55
+        col1, col2 = st.columns(2)
+        with col1:
+            lat = st.number_input("Breitengrad", value=47.37)
+        with col2:
+            lon = st.number_input("Längengrad", value=8.55)
 
     alt = st.number_input("Abwurfhöhe in Metern", min_value=500, max_value=30000, value=6000, step=100)
     sink_rate = st.slider("Maximale Sinkrate (m/s)", min_value=1.5, max_value=6.0, value=4.5, step=0.1)
@@ -160,8 +186,12 @@ def main():
         st.write(f"Abstiegsdauer: {total_time/60:.1f} Minuten")
         st.write(f"Modelllaufzeit: {model_time}")
 
-        fmap_result = folium.Map(location=path[0], zoom_start=9)
-        folium.Marker(path[0], tooltip="Abwurfpunkt", icon=folium.Icon(color="green")).add_to(fmap_result)
+        from folium import Map, FitBounds
+
+        bounds = [[min(p[0] for p in path), min(p[1] for p in path)], [max(p[0] for p in path), max(p[1] for p in path)]]
+        fmap_result = Map()
+        fmap_result.fit_bounds(bounds)
+        folium.Marker(path[0], tooltip="Abstiegspunkt", icon=folium.Icon(color="green")).add_to(fmap_result)
         folium.Marker(path[-1], tooltip="Landepunkt", icon=folium.Icon(color="red")).add_to(fmap_result)
         folium.PolyLine(path, color="blue", weight=2.5, opacity=0.8).add_to(fmap_result)
 
