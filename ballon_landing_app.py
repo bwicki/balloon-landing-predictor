@@ -7,6 +7,22 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 # Höhenabfrage (Open-Elevation)
+# GFS Windprofil von Open-Meteo API
+
+def fetch_gfs_profile(lat, lon):
+    try:
+        now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=wind_speed_100m,wind_direction_100m&models=gfs&timezone=UTC"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+
+        wind_speeds = [ws for ws in data['hourly']['wind_speed_100m'][:20]]
+        wind_dirs = [wd for wd in data['hourly']['wind_direction_100m'][:20]]
+        altitudes = np.linspace(0, 6000, len(wind_speeds))
+        model_time = data['hourly']['time'][0]
+        return wind_speeds, wind_dirs, altitudes, model_time
+    except Exception as e:
+        raise RuntimeError(f"Fehler beim Abrufen der GFS-Winddaten: {e}")
 def fetch_terrain_height(lat, lon):
     try:
         url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
@@ -109,6 +125,10 @@ def main():
         else:
             lat = 47.37
             lon = 8.55
+
+    if input_mode == "Manuell (Koordinaten)":
+            lat = 47.37
+            lon = 8.55
     else:
         col1, col2 = st.columns(2)
         with col1:
@@ -138,11 +158,7 @@ def main():
 
         with st.spinner("Hole Winddaten und berechne Pfad ..."):
             try:
-                # Beispiel-Dummy: ersetze dies mit fetch_gfs_profile()
-                wind_speeds = np.linspace(2, 10, 20)
-                wind_dirs = np.linspace(90, 270, 20)
-                altitudes = np.linspace(0, 6000, 20)
-                model_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+                wind_speeds, wind_dirs, altitudes, model_time = fetch_gfs_profile(lat, lon)
 
                 st.success(f"Winddaten aus Modelllauf: {model_time}")
                 st.markdown("### Vertikalprofil (Wind)")
@@ -170,7 +186,7 @@ def main():
         model_time = st.session_state.model_run_time
 
         st.markdown("### Ergebnis")
-                result_coords = path[-1] if mode.startswith("Vorwärts") else path[0]
+        result_coords = path[-1] if mode.startswith("Vorwärts") else path[0]
         terrain_height = fetch_terrain_height(result_coords[0], result_coords[1])
         st.write(f"Geländehöhe am Zielpunkt: {terrain_height:.0f} m AMSL")
         ns = 'N' if result_coords[0] >= 0 else 'S'
