@@ -170,8 +170,7 @@ def main():
         model_time = st.session_state.model_run_time
 
         st.markdown("### Ergebnis")
-        st.write(f"Geländehöhe am Zielpunkt: {terrain_height:.0f} m AMSL")
-        result_coords = path[-1] if mode.startswith("Vorwärts") else path[0]
+                result_coords = path[-1] if mode.startswith("Vorwärts") else path[0]
         terrain_height = fetch_terrain_height(result_coords[0], result_coords[1])
         st.write(f"Geländehöhe am Zielpunkt: {terrain_height:.0f} m AMSL")
         ns = 'N' if result_coords[0] >= 0 else 'S'
