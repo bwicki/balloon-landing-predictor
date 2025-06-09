@@ -12,12 +12,31 @@ import math
 def fetch_gfs_profile(lat, lon):
     try:
         now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=wind_speed_100m,wind_direction_100m&models=gfs&timezone=UTC"
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=wind_speed_100m,wind_direction_100m,wind_speed_10m,wind_direction_10m&models=gfs&timezone=UTC"
         response = requests.get(url, timeout=10)
         data = response.json()
 
-        if 'hourly' not in data or 'wind_speed_100m' not in data['hourly']:
-            raise RuntimeError("Die GFS-Antwort enthält keine gültigen Winddaten.")
+        if 'hourly' not in data:
+            raise RuntimeError("Die GFS-Antwort enthält keine stündlichen Daten.")
+
+        hourly = data['hourly']
+
+        if 'wind_speed_100m' in hourly and 'wind_direction_100m' in hourly:
+            wind_speeds = [ws for ws in hourly['wind_speed_100m'][:20]]
+            wind_dirs = [wd for wd in hourly['wind_direction_100m'][:20]]
+            height_label = "100 m"
+        elif 'wind_speed_10m' in hourly and 'wind_direction_10m' in hourly:
+            wind_speeds = [ws for ws in hourly['wind_speed_10m'][:20]]
+            wind_dirs = [wd for wd in hourly['wind_direction_10m'][:20]]
+            height_label = "10 m"
+        else:
+            available = list(hourly.keys())
+            raise RuntimeError(f"Keine nutzbaren Winddaten verfügbar. Verfügbare Felder: {available}")
+
+        altitudes = np.linspace(0, 6000, len(wind_speeds))
+        model_time = hourly['time'][0]
+        show_wind_profile(wind_speeds, altitudes, model_time)
+        return wind_speeds, wind_dirs, altitudes, model_time
 
         wind_speeds = [ws for ws in data['hourly']['wind_speed_100m'][:20]]
         wind_dirs = [wd for wd in data['hourly']['wind_direction_100m'][:20]]
@@ -126,11 +145,9 @@ def main():
     st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="wide")
     st.title("🎈 Ballon-Landepunkt-Vorhersage")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        eingabeart = st.radio("Eingabemethode", ["Interaktive Karte", "Manuelle Koordinaten"], horizontal=True)
-    with col2:
-        modus = st.radio("Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"], horizontal=True)
+    st.markdown("**Eingabemethode & Simulationsmodus**")
+eingabeart = st.radio("Eingabemethode", ["Interaktive Karte", "Manuelle Koordinaten"])
+modus = st.radio("Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"])
 
     if eingabeart == "Interaktive Karte":
         st.markdown("Wähle den Punkt durch Klick auf die Karte:")
@@ -147,11 +164,18 @@ def main():
             lat = start_location[0]
             lon = start_location[1]
     else:
-        lat = st.number_input("Breitengrad (dezimal)", value=47.3769)
-        lon = st.number_input("Längengrad (dezimal)", value=8.5417)
+        col_lat, col_lon = st.columns(2)
+        with col_lat:
+            lat = st.number_input("Breitengrad (dezimal)", value=47.3769)
+        with col_lon:
+            lon = st.number_input("Längengrad (dezimal)", value=8.5417)
 
-    altitude = st.number_input("Abstiegshöhe (m AMSL)", value=6000, min_value=100, max_value=30000)
-    sinkrate = st.number_input("Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
+    col_alt, col_rate = st.columns(2)
+    with col_alt:
+        altitude = st.number_input("Abstiegshöhe (m AMSL)", value=6000, min_value=100, max_value=30000)
+    with col_rate:
+        sinkrate = st.number_input("Sinkrate (m/s)", value=4.5, min_value=0.1, max_value=10.0, step=0.1)
+
     reduce_below = st.number_input("Sinkratenreduktion ab (m AGL)", value=300, min_value=0, max_value=2000)
 
     if st.button("Simulation starten"):
