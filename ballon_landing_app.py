@@ -146,6 +146,8 @@ def main():
     st.title("🎈 Ballon-Landepunkt-Vorhersage")
 
     st.markdown("**Eingabemethode & Simulationsmodus**")
+    eingabeart = st.radio("Eingabemethode", ["Interaktive Karte", "Manuelle Koordinaten"])
+    modus = st.radio("Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"])
 eingabeart = st.radio("Eingabemethode", ["Interaktive Karte", "Manuelle Koordinaten"])
 modus = st.radio("Simulationsmodus", ["Vorwärts (Landepunkt bestimmen)", "Rückwärts (Startpunkt bestimmen)"])
 
