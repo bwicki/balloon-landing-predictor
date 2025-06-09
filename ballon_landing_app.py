@@ -56,12 +56,12 @@ def fetch_gfs_wind(lat, lon):
 
 
 def main():
-    st.set_page_config(page_title="Fallschirm-Landepunkt-Prognose", layout="wide")
-    st.title("\U0001F30D Fallschirm-Landepunkt-Vorhersage")
+    st.set_page_config(page_title="Ballon-Landepunkt-Prognose", layout="wide")
+    st.title("\U0001F30D Ballon-Landepunkt-Vorhersage")
 
     st.markdown("""
-    Dieses Tool berechnet den wahrscheinlichen Landepunkt eines Ballons oder Objekts,
-    das mit einem Fallschirm aus hoher Höhe abgeworfen wird. Es verwendet aktuelle Winddaten (GFS, 100m-Niveau).
+    Dieses Tool berechnet den wahrscheinlichen Landepunkt eines Ballons,
+    der einen Abstieg aus hoher Höhe macht. Es verwendet aktuelle Winddaten (GFS, 100m-Niveau).
     """)
 
     with st.form("input_form"):
